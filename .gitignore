@@ -1,0 +1,19 @@
+node_modules/
+frontend/.env
+frontend/dist/
+backend/target/
+
+# Maven
+target/
+
+# Eclipse
+.settings/
+.project
+.classpath
+
+# IntelliJ
+.idea/
+*.iml
+
+# VS Code
+.vscode/
