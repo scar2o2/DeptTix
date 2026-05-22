@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import CredentialsButton from "./CredentialsButton";
 import { useToast } from "../context/ToastContext";
 
 export default function Register() {
-  const allowedEmailDomain = "@veltech.edu.in";
   const { register, loading } = useAuth();
   const { showToast } = useToast();
   const [form, setForm] = useState({
@@ -19,13 +19,6 @@ export default function Register() {
     event.preventDefault();
     setMessage("");
     setError("");
-
-    if (!form.email.trim().toLowerCase().endsWith(allowedEmailDomain)) {
-      const failure = `Use your ${allowedEmailDomain} email address to register.`;
-      setError(failure);
-      showToast({ title: "Vel Tech email required", message: failure, variant: "error" });
-      return;
-    }
 
     try {
       await register(form);
@@ -45,10 +38,13 @@ export default function Register() {
 
   return (
     <section className="auth-page">
+      <div className="auth-utility">
+        <CredentialsButton />
+      </div>
       <div className="hero-panel">
         <p className="eyebrow">Secure Vel Tech Onboarding</p>
         <h1>Create your campus event access</h1>
-        <p>Students and faculty can register, verify email, and then enter the protected Vel Tech event booking system.</p>
+        <p>Register with any email, verify it, and then enter the protected Vel Tech event booking system.</p>
       </div>
 
       <form className="brutal-card auth-card" onSubmit={handleSubmit}>
@@ -63,8 +59,6 @@ export default function Register() {
           type="email"
           value={form.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
-          pattern="^[^@\s]+@veltech\.edu\.in$"
-          title="Use your @veltech.edu.in email address"
         />
         <input
           placeholder="Password"
@@ -73,7 +67,7 @@ export default function Register() {
           onChange={(e) => setForm({ ...form, password: e.target.value })}
         />
         <div className="summary-box">
-          <span>Only @veltech.edu.in email addresses can create new accounts.</span>
+          <span>Any valid email address can create a new account.</span>
           <span>You will choose your department after your first verified sign-in.</span>
           <span>Admin access is provisioned separately.</span>
         </div>

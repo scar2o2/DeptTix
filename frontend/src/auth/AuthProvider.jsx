@@ -12,11 +12,6 @@ import api, { setAuthTokenGetter } from "../services/api";
 import { auth, googleProvider } from "../firebase/config";
 
 const AuthContext = createContext(null);
-const VELTECH_EMAIL_DOMAIN = "@veltech.edu.in";
-
-function isVelTechEmail(email = "") {
-  return email.trim().toLowerCase().endsWith(VELTECH_EMAIL_DOMAIN);
-}
 
 async function resolveAppUser() {
   try {
@@ -75,9 +70,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   const register = async ({ name, email, password }) => {
-    if (!isVelTechEmail(email)) {
-      throw new Error("Registration is allowed only with a @veltech.edu.in email address.");
-    }
     const credential = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(credential.user, { displayName: name });
     await sendEmailVerification(credential.user);

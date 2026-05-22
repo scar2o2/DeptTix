@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import CredentialsButton from "./CredentialsButton";
 import { useToast } from "../context/ToastContext";
 
 export default function Login() {
@@ -59,10 +60,13 @@ export default function Login() {
 
   return (
     <section className="auth-page">
+      <div className="auth-utility">
+        <CredentialsButton />
+      </div>
       <div className="hero-panel">
         <p className="eyebrow">Vel Tech Events Access</p>
         <h1>Sign in to Vel Tech Events</h1>
-        <p>Use your verified account to access college events, school-level workshops, auditorium programs, and booking tools.</p>
+        <p>Use your verified email account to access college events, school-level workshops, auditorium programs, and booking tools.</p>
       </div>
 
       <form className="brutal-card auth-card" onSubmit={handleSubmit}>
@@ -86,7 +90,7 @@ export default function Login() {
         </button>
         <div className="summary-box">
           <span>Email login requires verified email before campus event access.</span>
-          <span>Google login syncs your Vel Tech event profile on first sign-in.</span>
+          <span>Google login syncs your event profile on first sign-in.</span>
         </div>
         <p>Need an account? <Link to="/register">Register</Link></p>
       </form>

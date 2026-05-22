@@ -22,6 +22,8 @@ export default function EventDetailPage() {
     return <p>Loading event details...</p>;
   }
 
+  const completed = new Date(event.dateTime).getTime() < Date.now();
+
   return (
     <section className="detail-panel brutal-card">
       <p className="eyebrow">{getDepartmentLabel(event.department)}</p>
@@ -41,7 +43,11 @@ export default function EventDetailPage() {
       </div>
       <p>This Vel Tech booking experience is limited to authenticated student and faculty users only.</p>
       <div className="card-actions">
-        <Link className="brutal-button" to={`/events/${event.id}/book`}>Continue to Booking</Link>
+        {completed ? (
+          <span className="role-chip completed-chip">Completed</span>
+        ) : (
+          <Link className="brutal-button" to={`/events/${event.id}/book`}>Continue to Booking</Link>
+        )}
       </div>
     </section>
   );

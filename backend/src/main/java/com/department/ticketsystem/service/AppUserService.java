@@ -26,7 +26,6 @@ import org.springframework.web.server.ResponseStatusException;
 public class AppUserService {
 
     private static final String LEGACY_PASSWORD_PLACEHOLDER = "FIREBASE_AUTH_LEGACY_PLACEHOLDER";
-    private static final String VELTECH_EMAIL_DOMAIN = "@veltech.edu.in";
 
     private final UserRepository userRepository;
     private final SavedPassengerRepository savedPassengerRepository;
@@ -54,10 +53,6 @@ public class AppUserService {
 
         boolean isNew = user.getId() == null;
         Role resolvedRole = resolveRole(principal.getEmail());
-        if (isNew && resolvedRole != Role.ADMIN && !isVelTechEmail(principal.getEmail())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "New users must use a @veltech.edu.in email address");
-        }
         user.setFirebaseUid(principal.getUid());
         user.setEmail(principal.getEmail());
         user.setName(resolveName(user, principal));
@@ -110,10 +105,6 @@ public class AppUserService {
 
     private Role resolveRole(String email) {
         return adminEmails.contains(email.toLowerCase()) ? Role.ADMIN : Role.USER;
-    }
-
-    private boolean isVelTechEmail(String email) {
-        return email != null && email.trim().toLowerCase().endsWith(VELTECH_EMAIL_DOMAIN);
     }
 
     private User getRequiredUser(FirebaseUserPrincipal principal) {

@@ -225,6 +225,13 @@ input, select {
   grid-template-columns: 1.15fr 0.85fr;
   gap: 2rem;
   align-items: center;
+  position: relative;
+}
+
+.auth-utility {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
 }
 
 .auth-loading {
@@ -343,6 +350,34 @@ input, select {
   padding: 0.65rem 0.9rem;
 }
 
+.credentials-trigger {
+  border: var(--border);
+  background: var(--yellow);
+  color: var(--ink);
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  font-weight: 900;
+  box-shadow: 5px 5px 0 var(--ink);
+}
+
+.credentials-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.credential-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem;
+  border: 3px solid var(--ink);
+  background: #fff8de;
+}
+
+.credential-card strong {
+  font-size: 1.1rem;
+  text-transform: uppercase;
+}
+
 .eyebrow, .role-chip {
   text-transform: uppercase;
   font-weight: 800;
@@ -410,6 +445,36 @@ input, select {
   gap: 1.5rem;
 }
 
+.event-section {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  border-bottom: 4px solid var(--ink);
+  padding-bottom: 0.6rem;
+}
+
+.section-heading h2 {
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.section-heading span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  border: 3px solid var(--ink);
+  background: var(--yellow);
+  font-weight: 900;
+}
+
 .booking-layout {
   display: grid;
   grid-template-columns: 1.3fr 0.7fr;
@@ -418,6 +483,14 @@ input, select {
 
 .event-grid {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.completed-event-card {
+  background: #edf7f6;
+}
+
+.completed-chip {
+  background: #d8d8d8;
 }
 
 .meta-grid, .detail-grid {
@@ -534,6 +607,10 @@ input, select {
   box-shadow: 10px 10px 0 var(--ink);
   background: #fff;
   padding: 1.5rem;
+}
+
+.credentials-modal-card {
+  width: min(560px, 100%);
 }
 
 .modal-card.danger {
@@ -869,6 +946,12 @@ input, select {
 
   .nav-links, .user-strip {
     flex-wrap: wrap;
+  }
+
+  .auth-utility {
+    position: static;
+    grid-column: 1;
+    justify-self: end;
   }
 
   .toast-stack {

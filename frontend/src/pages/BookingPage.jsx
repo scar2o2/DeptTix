@@ -318,6 +318,19 @@ export default function BookingPage() {
     return <p>{error || "Loading booking form..."}</p>;
   }
 
+  if (new Date(event.dateTime).getTime() < Date.now()) {
+    return (
+      <section className="brutal-card booking-panel">
+        <p className="eyebrow">Completed Event</p>
+        <h1>{event.name}</h1>
+        <p>This event has finished, so ticket booking is no longer available.</p>
+        <button className="brutal-button secondary" type="button" onClick={() => navigate(`/events/${event.id}`)}>
+          Back to Details
+        </button>
+      </section>
+    );
+  }
+
   const remainingImportSlots = getUnfilledHolderIndexes().length;
 
   return (

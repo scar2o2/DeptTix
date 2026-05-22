@@ -31,6 +31,9 @@ public class DataInitializer implements CommandLineRunner {
     private static final String ADMIN_EMAIL = "manojcherukuri202@gmai.com";
     private static final String ADMIN_PASSWORD = "Admin@123";
     private static final String ADMIN_NAME = "Admin";
+    private static final String SAMPLE_USER_EMAIL = "student@department.edu";
+    private static final String SAMPLE_USER_PASSWORD = "Student@123";
+    private static final String SAMPLE_USER_NAME = "Sample Student";
     private static final List<String> CAMPUS_VENUES = List.of(
             "CK Naidu Stadium",
             "Convocation Hall",
@@ -54,6 +57,7 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         ensureAdminUser();
+        ensureSampleUser();
         ensureVenues();
         ensureSampleEvents();
     }
@@ -86,6 +90,24 @@ public class DataInitializer implements CommandLineRunner {
         userRepository.save(admin);
     }
 
+    private void ensureSampleUser() {
+        User user = userRepository.findByEmail(SAMPLE_USER_EMAIL).orElseGet(User::new);
+        user.setName(SAMPLE_USER_NAME);
+        user.setEmail(SAMPLE_USER_EMAIL);
+        user.setPassword(LEGACY_PASSWORD_PLACEHOLDER);
+        user.setRole(Role.USER);
+        user.setDepartment(Department.CSE.name());
+        try {
+            UserRecord firebaseUser = getOrCreateFirebaseUser(SAMPLE_USER_EMAIL, SAMPLE_USER_PASSWORD, SAMPLE_USER_NAME);
+            user.setFirebaseUid(firebaseUser.getUid());
+        } catch (Exception exception) {
+            LOGGER.warn("Unable to auto-create Firebase sample user for {}. "
+                    + "The DB user row will still be seeded, but Firebase login for this account "
+                    + "must be created manually. Reason: {}", SAMPLE_USER_EMAIL, exception.getMessage());
+        }
+        userRepository.save(user);
+    }
+
     private UserRecord getOrCreateFirebaseAdmin() throws FirebaseAuthException {
         try {
             return FirebaseAuth.getInstance().getUserByEmail(ADMIN_EMAIL);
@@ -98,10 +120,29 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
 
+        return createFirebaseUser(ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME);
+    }
+
+    private UserRecord getOrCreateFirebaseUser(String email, String password, String name) throws FirebaseAuthException {
+        try {
+            return FirebaseAuth.getInstance().getUserByEmail(email);
+        } catch (FirebaseAuthException exception) {
+            String errorCode = exception.getAuthErrorCode() == null
+                    ? ""
+                    : exception.getAuthErrorCode().name();
+            if (!"USER_NOT_FOUND".equals(errorCode)) {
+                throw exception;
+            }
+        }
+
+        return createFirebaseUser(email, password, name);
+    }
+
+    private UserRecord createFirebaseUser(String email, String password, String name) throws FirebaseAuthException {
         UserRecord.CreateRequest request = new UserRecord.CreateRequest()
-                .setEmail(ADMIN_EMAIL)
-                .setPassword(ADMIN_PASSWORD)
-                .setDisplayName(ADMIN_NAME)
+                .setEmail(email)
+                .setPassword(password)
+                .setDisplayName(name)
                 .setEmailVerified(true)
                 .setDisabled(false);
         return FirebaseAuth.getInstance().createUser(request);
