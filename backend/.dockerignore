@@ -1,0 +1,6 @@
+target
+.env
+.env.properties
+.classpath
+.project
+.settings
