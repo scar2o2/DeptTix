@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
-import CredentialsButton from "./CredentialsButton";
 import { useToast } from "../context/ToastContext";
 
 export default function Login() {
@@ -60,9 +59,6 @@ export default function Login() {
 
   return (
     <section className="auth-page">
-      <div className="auth-utility">
-        <CredentialsButton />
-      </div>
       <div className="hero-panel">
         <p className="eyebrow">Vel Tech Events Access</p>
         <h1>Sign in to Vel Tech Events</h1>

@@ -1,5 +1,7 @@
 node_modules/
 frontend/.env
+backend/.env
+backend/.env.properties
 frontend/dist/
 backend/target/
 

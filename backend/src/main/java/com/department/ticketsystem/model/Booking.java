@@ -8,14 +8,18 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 @Entity
-@Table(name = "bookings")
+@Table(name = "bookings", indexes = {
+        @Index(name = "idx_bookings_user_date", columnList = "user_id,booking_date"),
+        @Index(name = "idx_bookings_event_status_date", columnList = "event_id,status,booking_date"),
+        @Index(name = "idx_bookings_status_date", columnList = "status,booking_date")
+})
 public class Booking {
 
     @Id
@@ -43,8 +47,7 @@ public class Booking {
 
     private String seatNumbers;
 
-    @Lob
-    @Column(name = "ticket_holders", columnDefinition = "LONGTEXT")
+    @Column(name = "ticket_holders", columnDefinition = "text")
     private String ticketHoldersJson;
 
     public Booking() {

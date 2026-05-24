@@ -82,7 +82,7 @@ public class BookingService {
     }
 
     public List<BookingResponse> getUserBookings(String email) {
-        User user = getUser(email);
+        User user = getAccount(email);
         return bookingRepository.findByUserOrderByBookingDateDesc(user).stream().map(this::toResponse).toList();
     }
 
@@ -130,6 +130,27 @@ public class BookingService {
         response.put("totalAmount", pricePerTicket.multiply(BigDecimal.valueOf(seats.size())));
         response.put("holdExpiresAt", heldAt.plusMinutes(HOLD_MINUTES));
         return response;
+    }
+
+    @Transactional
+    public void cancelHold(String email, Long eventId, List<Long> seatIds) {
+        User user = getUser(email);
+        Event event = eventService.getAccessibleEventEntity(eventId, email);
+        List<Seat> seats = seatRepository.findByEventAndIdIn(event, seatIds);
+        if (seats.size() != seatIds.size()) {
+            throw new IllegalArgumentException("One or more selected seats do not exist");
+        }
+
+        seats.stream()
+                .filter(seat -> seat.getStatus() == SeatStatus.HELD)
+                .filter(seat -> seat.getHeldBy() != null && Objects.equals(seat.getHeldBy().getId(), user.getId()))
+                .forEach(seat -> {
+                    seat.setStatus(SeatStatus.AVAILABLE);
+                    seat.setHeldBy(null);
+                    seat.setHeldAt(null);
+                });
+        seatRepository.saveAll(seats);
+        eventService.refreshAvailableTickets(event);
     }
 
     @Transactional
@@ -186,12 +207,16 @@ public class BookingService {
     }
 
     private User getUser(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = getAccount(email);
         if (user.getRole() == Role.ADMIN) {
             throw new IllegalArgumentException("Admin cannot book tickets");
         }
         return user;
+    }
+
+    private User getAccount(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
     }
 
     private int resolveTicketCount(BookingRequest request) {
@@ -317,10 +342,14 @@ public class BookingService {
         if (ticketHoldersJson == null || ticketHoldersJson.isBlank()) {
             return List.of();
         }
+        String value = ticketHoldersJson.trim();
+        if (!value.startsWith("[")) {
+            return List.of();
+        }
         try {
-            return objectMapper.readValue(ticketHoldersJson, new TypeReference<List<TicketHolderDetails>>() { });
+            return objectMapper.readValue(value, new TypeReference<List<TicketHolderDetails>>() { });
         } catch (Exception exception) {
-            throw new IllegalStateException("Unable to read ticket holder details", exception);
+            return List.of();
         }
     }
 }

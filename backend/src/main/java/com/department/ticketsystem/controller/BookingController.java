@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,6 +35,14 @@ public class BookingController {
     @PostMapping("/hold")
     public Map<String, Object> holdSeats(@RequestBody Map<String, Object> request, Principal principal) {
         return bookingService.holdSeats(
+                principal.getName(),
+                toLong(request.get("eventId")),
+                toLongList(request.get("seatIds")));
+    }
+
+    @DeleteMapping("/hold")
+    public void cancelHold(@RequestBody Map<String, Object> request, Principal principal) {
+        bookingService.cancelHold(
                 principal.getName(),
                 toLong(request.get("eventId")),
                 toLongList(request.get("seatIds")));

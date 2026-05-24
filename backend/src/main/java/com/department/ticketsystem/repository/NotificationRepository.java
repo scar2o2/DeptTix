@@ -8,5 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
     List<Notification> findByUserOrderByTimestampDesc(User user);
 
+    List<Notification> findTop20ByUserOrderByTimestampDesc(User user);
+
     long countByUserAndReadStatusFalse(User user);
 }

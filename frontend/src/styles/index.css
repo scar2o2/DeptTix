@@ -228,12 +228,6 @@ input, select {
   position: relative;
 }
 
-.auth-utility {
-  position: absolute;
-  top: 1.25rem;
-  right: 1.25rem;
-}
-
 .auth-loading {
   min-height: 100vh;
   display: grid;
@@ -348,34 +342,6 @@ input, select {
 
 .brutal-button.small {
   padding: 0.65rem 0.9rem;
-}
-
-.credentials-trigger {
-  border: var(--border);
-  background: var(--yellow);
-  color: var(--ink);
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  font-weight: 900;
-  box-shadow: 5px 5px 0 var(--ink);
-}
-
-.credentials-list {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.credential-card {
-  display: grid;
-  gap: 0.45rem;
-  padding: 1rem;
-  border: 3px solid var(--ink);
-  background: #fff8de;
-}
-
-.credential-card strong {
-  font-size: 1.1rem;
-  text-transform: uppercase;
 }
 
 .eyebrow, .role-chip {
@@ -538,7 +504,7 @@ input, select {
   gap: 1.5rem;
 }
 
-.summary-box, .demo-credentials {
+.summary-box {
   display: grid;
   gap: 0.5rem;
   padding: 1rem;
@@ -607,10 +573,6 @@ input, select {
   box-shadow: 10px 10px 0 var(--ink);
   background: #fff;
   padding: 1.5rem;
-}
-
-.credentials-modal-card {
-  width: min(560px, 100%);
 }
 
 .modal-card.danger {
@@ -946,12 +908,6 @@ input, select {
 
   .nav-links, .user-strip {
     flex-wrap: wrap;
-  }
-
-  .auth-utility {
-    position: static;
-    grid-column: 1;
-    justify-self: end;
   }
 
   .toast-stack {

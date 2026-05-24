@@ -17,7 +17,9 @@ import com.department.ticketsystem.repository.UserRepository;
 import com.department.ticketsystem.util.SeatNumberComparator;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,26 +50,21 @@ public class EventService {
     @Transactional
     public List<EventResponse> getAllEventsForUser(String email) {
         User user = getUser(email);
-        List<String> departments = user.getRole().name().equals("ADMIN")
-                ? List.of()
-                : List.of(user.getDepartment(), Department.ALL.name());
         List<Event> events = user.getRole().name().equals("ADMIN")
                 ? eventRepository.findAll()
-                : eventRepository.findByDepartmentInOrderByDateTimeAsc(departments);
-        return events.stream().map(event -> {
-            ensureSeatsForEvent(event);
-            refreshAvailableTickets(event);
-            return toResponse(event);
-        }).toList();
+                : eventRepository.findAllByOrderByDateTimeAsc();
+        Map<Long, SeatCountSnapshot> seatCounts = loadSeatCounts();
+        return events.stream()
+                .map(event -> toResponse(event, seatCounts.getOrDefault(event.getId(), SeatCountSnapshot.empty())))
+                .toList();
     }
 
     @Transactional
     public List<EventResponse> getAllEventsForAdmin() {
-        return eventRepository.findAll().stream().map(event -> {
-            ensureSeatsForEvent(event);
-            refreshAvailableTickets(event);
-            return toResponse(event);
-        }).toList();
+        Map<Long, SeatCountSnapshot> seatCounts = loadSeatCounts();
+        return eventRepository.findAll().stream()
+                .map(event -> toResponse(event, seatCounts.getOrDefault(event.getId(), SeatCountSnapshot.empty())))
+                .toList();
     }
 
     @Transactional
@@ -167,6 +164,7 @@ public class EventService {
         long heldSeats = seatRepository.countByEventAndStatus(event, SeatStatus.HELD);
         int availableTickets = refreshAvailableTickets(event);
         int sellableAvailableSeats = availableTickets + (int) heldSeats;
+        long bookedSeats = event.getTotalTickets() - availableTickets - heldSeats;
         return new EventResponse(
                 event.getId(),
                 event.getName(),
@@ -178,8 +176,43 @@ public class EventService {
                 pricingService.calculateMultiplier(event, sellableAvailableSeats),
                 availableTickets,
                 event.getTotalTickets(),
-                event.getTotalTickets() - availableTickets - (int) heldSeats,
+                bookedSeats,
                 heldSeats);
+    }
+
+    private EventResponse toResponse(Event event, SeatCountSnapshot seatCounts) {
+        int availableTickets = seatCounts.available() == 0 && seatCounts.total() == 0
+                ? event.getAvailableTickets()
+                : (int) seatCounts.available();
+        long heldSeats = seatCounts.held();
+        int sellableAvailableSeats = availableTickets + (int) heldSeats;
+        long bookedSeats = seatCounts.booked();
+        return new EventResponse(
+                event.getId(),
+                event.getName(),
+                event.getDepartment(),
+                event.getDateTime(),
+                event.getVenue(),
+                event.getTicketPrice(),
+                pricingService.calculateCurrentPrice(event, sellableAvailableSeats),
+                pricingService.calculateMultiplier(event, sellableAvailableSeats),
+                availableTickets,
+                event.getTotalTickets(),
+                bookedSeats,
+                heldSeats);
+    }
+
+    private Map<Long, SeatCountSnapshot> loadSeatCounts() {
+        Map<Long, SeatCountAccumulator> counts = new HashMap<>();
+        for (Object[] row : seatRepository.countSeatsByEventAndStatus()) {
+            Long eventId = (Long) row[0];
+            SeatStatus status = (SeatStatus) row[1];
+            long count = ((Number) row[2]).longValue();
+            counts.computeIfAbsent(eventId, ignored -> new SeatCountAccumulator()).add(status, count);
+        }
+        Map<Long, SeatCountSnapshot> snapshots = new HashMap<>();
+        counts.forEach((eventId, accumulator) -> snapshots.put(eventId, accumulator.toSnapshot()));
+        return snapshots;
     }
 
     @Transactional
@@ -231,15 +264,8 @@ public class EventService {
 
     public Event getAccessibleEventEntity(Long id, String email) {
         Event event = getEventEntity(id);
-        User user = getUser(email);
-        if (user.getRole().name().equals("ADMIN")) {
-            return event;
-        }
-        if (event.getDepartment().equals(Department.ALL.name())
-                || event.getDepartment().equalsIgnoreCase(user.getDepartment())) {
-            return event;
-        }
-        throw new IllegalArgumentException("This event is not available for your department");
+        getUser(email);
+        return event;
     }
 
     private User getUser(String email) {
@@ -304,8 +330,6 @@ public class EventService {
         String message = "New event added: " + event.getName() + " at " + event.getVenue() + ".";
         List<User> eligibleUsers = userRepository.findAll().stream()
                 .filter(user -> user.getRole().name().equals("USER"))
-                .filter(user -> event.getDepartment().equals(Department.ALL.name())
-                        || event.getDepartment().equalsIgnoreCase(user.getDepartment()))
                 .filter(user -> user.getEmail() != null && !user.getEmail().isBlank())
                 .toList();
         for (User user : eligibleUsers) {
@@ -324,6 +348,36 @@ public class EventService {
     private record LocalDateTimeSnapshot(java.time.LocalDateTime dateTime, String venue, BigDecimal ticketPrice) {
         private static LocalDateTimeSnapshot from(Event event) {
             return new LocalDateTimeSnapshot(event.getDateTime(), event.getVenue(), event.getTicketPrice());
+        }
+    }
+
+    private record SeatCountSnapshot(long available, long held, long booked) {
+        private static SeatCountSnapshot empty() {
+            return new SeatCountSnapshot(0, 0, 0);
+        }
+
+        private long total() {
+            return available + held + booked;
+        }
+    }
+
+    private static class SeatCountAccumulator {
+        private long available;
+        private long held;
+        private long booked;
+
+        private void add(SeatStatus status, long count) {
+            if (status == SeatStatus.AVAILABLE) {
+                available += count;
+            } else if (status == SeatStatus.HELD) {
+                held += count;
+            } else if (status == SeatStatus.BOOKED) {
+                booked += count;
+            }
+        }
+
+        private SeatCountSnapshot toSnapshot() {
+            return new SeatCountSnapshot(available, held, booked);
         }
     }
 }

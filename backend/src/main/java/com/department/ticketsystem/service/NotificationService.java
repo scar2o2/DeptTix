@@ -34,7 +34,7 @@ public class NotificationService {
 
     public List<NotificationResponse> getNotifications(String email) {
         User user = getUser(email);
-        return notificationRepository.findByUserOrderByTimestampDesc(user).stream()
+        return notificationRepository.findTop20ByUserOrderByTimestampDesc(user).stream()
                 .map(this::toResponse)
                 .toList();
     }

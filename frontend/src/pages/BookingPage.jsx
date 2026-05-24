@@ -88,6 +88,12 @@ export default function BookingPage() {
     });
   }, [selectedSeatIds]);
 
+  useEffect(() => {
+    if (holdInfo && selectedSeatIds.length !== holdInfo.seatNumbers.length) {
+      setHoldInfo(null);
+    }
+  }, [holdInfo, selectedSeatIds]);
+
   const toggleSeat = (seat) => {
     if (seat.status === "BOOKED" || (seat.status === "HELD" && !seat.heldByCurrentUser)) {
       return;
@@ -268,6 +274,31 @@ export default function BookingPage() {
       const message = err.response?.data?.message || "Unable to hold seats.";
       setError(message);
       showToast({ title: "Hold failed", message, variant: "error" });
+    }
+  };
+
+  const cancelHold = async () => {
+    if (!holdInfo || !selectedSeatIds.length) {
+      return;
+    }
+    try {
+      await api.delete("/bookings/hold", { data: { eventId: Number(id), seatIds: selectedSeatIds } });
+      showToast({
+        title: "Hold cancelled",
+        message: `${holdInfo.seatNumbers.join(", ")} released back to availability.`,
+        variant: "info"
+      });
+      const { data: refreshedSeats } = await api.get(`/events/${id}/seats`);
+      const { data: refreshedEvent } = await api.get(`/events/${id}`);
+      setSeats(sortSeats(refreshedSeats));
+      setEvent(refreshedEvent);
+      setHoldInfo(null);
+      setSelectedSeatIds([]);
+      setTicketHolders([]);
+    } catch (err) {
+      const message = err.response?.data?.message || "Unable to cancel the seat hold.";
+      setError(message);
+      showToast({ title: "Cancel hold failed", message, variant: "error" });
     }
   };
 
@@ -458,8 +489,13 @@ export default function BookingPage() {
             ) : <p className="muted-text">Choose seat(s) to unlock attendee details.</p>}
           </div>
           <div className="card-actions">
-            <button className="brutal-button secondary" type="button" onClick={holdSeats}>
-              Hold Seats
+            <button
+              className={`brutal-button ${holdInfo ? "danger" : "secondary"}`}
+              type="button"
+              onClick={holdInfo ? cancelHold : holdSeats}
+              disabled={!selectedSeatIds.length}
+            >
+              {holdInfo ? "Cancel Hold" : "Hold Seats"}
             </button>
             <button className="brutal-button" type="submit" disabled={!selectedSeatIds.length}>
               Confirm Booking

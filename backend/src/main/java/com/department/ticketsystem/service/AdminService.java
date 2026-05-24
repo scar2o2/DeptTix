@@ -18,6 +18,7 @@ import com.lowagie.text.pdf.PdfWriter;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -50,17 +51,20 @@ public class AdminService {
     }
 
     public BookingStatsResponse getBookingStats() {
-        List<Map<String, Object>> ticketDistribution = eventRepository.findAll().stream()
+        List<Event> events = eventRepository.findAll();
+        Map<Long, SeatCountSnapshot> seatCounts = loadSeatCounts();
+
+        List<Map<String, Object>> ticketDistribution = events.stream()
                 .map(event -> Map.<String, Object>of(
                         "name", event.getName(),
-                        "tickets", seatRepository.countByEventAndStatus(event, SeatStatus.BOOKED)))
+                        "tickets", seatCounts.getOrDefault(event.getId(), SeatCountSnapshot.empty()).booked()))
                 .toList();
 
-        List<Map<String, Object>> soldVsRemaining = eventRepository.findAll().stream()
+        List<Map<String, Object>> soldVsRemaining = events.stream()
                 .map(event -> Map.<String, Object>of(
                         "name", event.getName(),
-                        "booked", seatRepository.countByEventAndStatus(event, SeatStatus.BOOKED),
-                        "remaining", seatRepository.countByEventAndStatus(event, SeatStatus.AVAILABLE)))
+                        "booked", seatCounts.getOrDefault(event.getId(), SeatCountSnapshot.empty()).booked(),
+                        "remaining", seatCounts.getOrDefault(event.getId(), SeatCountSnapshot.empty()).available()))
                 .toList();
 
         List<Map<String, Object>> bookingsOverTime = bookingRepository
@@ -69,6 +73,19 @@ public class AdminService {
                 .toList();
 
         return new BookingStatsResponse(ticketDistribution, bookingsOverTime, soldVsRemaining);
+    }
+
+    private Map<Long, SeatCountSnapshot> loadSeatCounts() {
+        Map<Long, SeatCountAccumulator> counts = new HashMap<>();
+        for (Object[] row : seatRepository.countSeatsByEventAndStatus()) {
+            Long eventId = (Long) row[0];
+            SeatStatus status = (SeatStatus) row[1];
+            long count = ((Number) row[2]).longValue();
+            counts.computeIfAbsent(eventId, ignored -> new SeatCountAccumulator()).add(status, count);
+        }
+        Map<Long, SeatCountSnapshot> snapshots = new HashMap<>();
+        counts.forEach((eventId, accumulator) -> snapshots.put(eventId, accumulator.toSnapshot()));
+        return snapshots;
     }
 
     public byte[] exportReport(Long eventId) {
@@ -124,10 +141,37 @@ public class AdminService {
         if (ticketHoldersJson == null || ticketHoldersJson.isBlank()) {
             return List.of();
         }
+        String value = ticketHoldersJson.trim();
+        if (!value.startsWith("[")) {
+            return List.of();
+        }
         try {
-            return objectMapper.readValue(ticketHoldersJson, new TypeReference<List<TicketHolderDetails>>() { });
+            return objectMapper.readValue(value, new TypeReference<List<TicketHolderDetails>>() { });
         } catch (Exception exception) {
-            throw new IllegalStateException("Unable to read ticket holder details for export", exception);
+            return List.of();
+        }
+    }
+
+    private record SeatCountSnapshot(long available, long booked) {
+        private static SeatCountSnapshot empty() {
+            return new SeatCountSnapshot(0, 0);
+        }
+    }
+
+    private static class SeatCountAccumulator {
+        private long available;
+        private long booked;
+
+        private void add(SeatStatus status, long count) {
+            if (status == SeatStatus.AVAILABLE) {
+                available += count;
+            } else if (status == SeatStatus.BOOKED) {
+                booked += count;
+            }
+        }
+
+        private SeatCountSnapshot toSnapshot() {
+            return new SeatCountSnapshot(available, booked);
         }
     }
 }

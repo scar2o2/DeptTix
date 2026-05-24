@@ -6,15 +6,19 @@ import com.department.ticketsystem.model.Event;
 import com.department.ticketsystem.model.User;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
+    @EntityGraph(attributePaths = {"event"})
     List<Booking> findByUserOrderByBookingDateDesc(User user);
 
+    @EntityGraph(attributePaths = {"user", "event"})
     List<Booking> findByEventOrderByBookingDateDesc(Event event);
 
+    @EntityGraph(attributePaths = {"user", "event"})
     List<Booking> findByEventAndStatusOrderByBookingDateDesc(Event event, BookingStatus status);
 
     boolean existsByEvent(Event event);

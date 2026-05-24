@@ -31,8 +31,10 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/events/**").authenticated()
                         .requestMatchers("/api/users/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/bookings/me").authenticated()
                         .requestMatchers("/api/bookings/**").hasRole("USER")
                         .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers("/api/chat/**").authenticated()

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
-import CredentialsButton from "./CredentialsButton";
 import { useToast } from "../context/ToastContext";
 
 export default function Register() {
@@ -38,9 +37,6 @@ export default function Register() {
 
   return (
     <section className="auth-page">
-      <div className="auth-utility">
-        <CredentialsButton />
-      </div>
       <div className="hero-panel">
         <p className="eyebrow">Secure Vel Tech Onboarding</p>
         <h1>Create your campus event access</h1>

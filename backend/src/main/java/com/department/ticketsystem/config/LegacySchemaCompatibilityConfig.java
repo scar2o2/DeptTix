@@ -30,11 +30,23 @@ public class LegacySchemaCompatibilityConfig implements CommandLineRunner {
                 statement.executeUpdate(
                         "UPDATE users SET password = '" + LEGACY_PASSWORD_PLACEHOLDER + "' "
                                 + "WHERE password IS NULL OR password = ''");
-                statement.executeUpdate(
-                        "ALTER TABLE users MODIFY COLUMN password VARCHAR(255) NOT NULL "
-                                + "DEFAULT '" + LEGACY_PASSWORD_PLACEHOLDER + "'");
+                applyPasswordColumnDefaults(connection, statement);
             }
         }
+    }
+
+    private void applyPasswordColumnDefaults(Connection connection, Statement statement) throws Exception {
+        String databaseName = connection.getMetaData().getDatabaseProductName().toLowerCase();
+        if (databaseName.contains("postgresql")) {
+            statement.executeUpdate(
+                    "ALTER TABLE users ALTER COLUMN password SET DEFAULT '" + LEGACY_PASSWORD_PLACEHOLDER + "'");
+            statement.executeUpdate("ALTER TABLE users ALTER COLUMN password SET NOT NULL");
+            return;
+        }
+
+        statement.executeUpdate(
+                "ALTER TABLE users MODIFY COLUMN password VARCHAR(255) NOT NULL "
+                        + "DEFAULT '" + LEGACY_PASSWORD_PLACEHOLDER + "'");
     }
 
     private boolean hasPasswordColumn(Connection connection) throws Exception {

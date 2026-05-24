@@ -27,12 +27,7 @@ cd backend
 mvn spring-boot:run
 ```
 
-Default demo accounts created on startup:
-
-- Admin: `admin@department.edu` / `Admin@123`
-- User: `student@department.edu` / `Student@123`
-
-The backend is configured with in-memory H2 by default in [application.properties](/c:/Users/manoj_tiabzvj/OneDrive/Desktop/practice/web/f_s-class/project2-2/backend/src/main/resources/application.properties:1). You can switch to MySQL by replacing the datasource settings.
+The backend does not keep secrets in `application.properties`. For local development, create `backend/.env.properties` from `backend/.env.example` and fill in your real values. That file is ignored by git. For Render, paste the same values into the service Environment tab as `DATABASE_URL`, `DATABASE_USERNAME`, and `DATABASE_PASSWORD`.
 
 ## Frontend
 

@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 public interface SeatRepository extends JpaRepository<Seat, Long> {
     List<Seat> findByEventOrderBySeatNumberAsc(Event event);
@@ -16,6 +17,13 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
     List<Seat> findByEventAndIdIn(Event event, List<Long> seatIds);
 
     long countByEventAndStatus(Event event, SeatStatus status);
+
+    @Query("""
+        select s.event.id, s.status, count(s)
+        from Seat s
+        group by s.event.id, s.status
+        """)
+    List<Object[]> countSeatsByEventAndStatus();
 
     Optional<Seat> findByEventAndSeatNumber(Event event, String seatNumber);
 
