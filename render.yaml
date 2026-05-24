@@ -2,7 +2,7 @@ services:
   - type: web
     name: event-ticket-booking-backend
     runtime: docker
-    dockerContext: backend
+    dockerContext: .
     dockerfilePath: backend/Dockerfile
     healthCheckPath: /api/health
     envVars:
