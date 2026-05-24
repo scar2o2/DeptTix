@@ -40,7 +40,7 @@ npm install
 npm run dev
 ```
 
-The frontend uses `VITE_API_BASE_URL` for API calls and falls back to `http://localhost:8081/api` locally. For deployment, set `VITE_API_BASE_URL` to your deployed backend URL ending in `/api`, for example `https://your-backend.onrender.com/api`. Set the backend `APP_CORS_ALLOWED_ORIGINS` to your deployed frontend origin, for example `https://your-frontend.vercel.app`.
+The frontend uses `VITE_API_BASE_URL` for API calls and currently points to `https://depttix.onrender.com/api`. Set the backend `APP_CORS_ALLOWED_ORIGINS` to your deployed frontend origin, for example `https://your-frontend.vercel.app`.
 
 ## Admin analytics
 

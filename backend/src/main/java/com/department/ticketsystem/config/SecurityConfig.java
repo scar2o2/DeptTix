@@ -24,7 +24,7 @@ public class SecurityConfig {
     private final String allowedOrigins;
 
     public SecurityConfig(FirebaseAuthenticationFilter firebaseAuthenticationFilter,
-                          @Value("${app.cors.allowed-origins:http://localhost:5173}") String allowedOrigins) {
+                          @Value("${app.cors.allowed-origins:https://depttix.onrender.com}") String allowedOrigins) {
         this.firebaseAuthenticationFilter = firebaseAuthenticationFilter;
         this.allowedOrigins = allowedOrigins;
     }

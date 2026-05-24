@@ -3,34 +3,34 @@ package com.department.ticketsystem.config;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
-import java.io.FileInputStream;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import org.springframework.beans.factory.annotation.Value;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.ResourceLoader;
+import org.springframework.core.env.Environment;
 
 @Configuration
 public class FirebaseAdminConfig {
 
-    private final ResourceLoader resourceLoader;
+    private final Environment environment;
+    private final ObjectMapper objectMapper;
 
-    public FirebaseAdminConfig(ResourceLoader resourceLoader) {
-        this.resourceLoader = resourceLoader;
+    public FirebaseAdminConfig(Environment environment, ObjectMapper objectMapper) {
+        this.environment = environment;
+        this.objectMapper = objectMapper;
     }
 
     @Bean
-    public FirebaseApp firebaseApp(@Value("${firebase.service-account-path:}") String configuredPath) throws IOException {
+    public FirebaseApp firebaseApp() throws IOException {
         if (!FirebaseApp.getApps().isEmpty()) {
             return FirebaseApp.getInstance();
         }
 
-        String serviceAccountPath = resolveCredentialPath(configuredPath);
-        try (InputStream serviceAccount = openCredentialStream(serviceAccountPath)) {
+        try (InputStream serviceAccount = openCredentialStream()) {
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                     .build();
@@ -38,34 +38,49 @@ public class FirebaseAdminConfig {
         }
     }
 
-    private String resolveCredentialPath(String configuredPath) {
-        if (configuredPath != null && !configuredPath.isBlank()) {
-            return configuredPath.trim();
-        }
-
-        String fallbackPath = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
-        if (fallbackPath != null && !fallbackPath.isBlank()) {
-            return fallbackPath.trim();
-        }
-
-        throw new IllegalStateException(
-                "Firebase Admin credentials are missing. Set firebase.service-account-path, "
-                        + "FIREBASE_SERVICE_ACCOUNT_PATH, or GOOGLE_APPLICATION_CREDENTIALS.");
+    private InputStream openCredentialStream() throws IOException {
+        return openStructuredCredentialStream();
     }
 
-    private InputStream openCredentialStream(String serviceAccountPath) throws IOException {
-        if (serviceAccountPath.startsWith("classpath:")) {
-            Resource resource = resourceLoader.getResource(serviceAccountPath);
-            if (!resource.exists()) {
-                throw new IllegalStateException("Firebase service account file not found: " + serviceAccountPath);
-            }
-            return resource.getInputStream();
+    private InputStream openStructuredCredentialStream() throws IOException {
+        String projectId = getProperty("firebase.service-account.project-id");
+        String privateKey = getProperty("firebase.service-account.private-key");
+        String clientEmail = getProperty("firebase.service-account.client-email");
+
+        if (projectId.isBlank() || privateKey.isBlank() || clientEmail.isBlank()) {
+            throw new IllegalStateException(
+                    "Firebase Admin credentials are missing. Set FIREBASE_PROJECT_ID, "
+                            + "FIREBASE_PRIVATE_KEY, and FIREBASE_CLIENT_EMAIL.");
         }
 
-        Path filePath = Path.of(serviceAccountPath);
-        if (!Files.exists(filePath)) {
-            throw new IllegalStateException("Firebase service account file not found: " + serviceAccountPath);
-        }
-        return new FileInputStream(filePath.toFile());
+        Map<String, String> credentials = new LinkedHashMap<>();
+        credentials.put("type", defaultValue(getProperty("firebase.service-account.type"), "service_account"));
+        credentials.put("project_id", projectId);
+        credentials.put("private_key_id", getProperty("firebase.service-account.private-key-id"));
+        credentials.put("private_key", privateKey.replace("\\n", "\n"));
+        credentials.put("client_email", clientEmail);
+        credentials.put("client_id", getProperty("firebase.service-account.client-id"));
+        credentials.put("auth_uri", defaultValue(getProperty("firebase.service-account.auth-uri"),
+                "https://accounts.google.com/o/oauth2/auth"));
+        credentials.put("token_uri", defaultValue(getProperty("firebase.service-account.token-uri"),
+                "https://oauth2.googleapis.com/token"));
+        credentials.put("auth_provider_x509_cert_url",
+                defaultValue(getProperty("firebase.service-account.auth-provider-x509-cert-url"),
+                        "https://www.googleapis.com/oauth2/v1/certs"));
+        credentials.put("client_x509_cert_url", getProperty("firebase.service-account.client-x509-cert-url"));
+        credentials.put("universe_domain", defaultValue(getProperty("firebase.service-account.universe-domain"),
+                "googleapis.com"));
+
+        byte[] json = objectMapper.writeValueAsBytes(credentials);
+        return new ByteArrayInputStream(json);
+    }
+
+    private String getProperty(String key) {
+        String value = environment.getProperty(key, "");
+        return value == null ? "" : value.trim();
+    }
+
+    private String defaultValue(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 }
