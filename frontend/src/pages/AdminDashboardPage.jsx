@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
 import {
-  BarChart, Bar, CartesianGrid, Legend, Line, LineChart,
+  BarChart, Bar, CartesianGrid, LabelList, Legend, Line, LineChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis
 } from "recharts";
 import api from "../services/api";
 
 const toNumber = (value) => Number(value || 0);
 
-const splitLabel = (value = "", limit = 24) => {
+const splitLabel = (value = "", limit = 24, maxLines = 2) => {
   const words = value.split(" ");
   const lines = [""];
   words.forEach((word) => {
     const current = lines[lines.length - 1];
-    if (`${current} ${word}`.trim().length <= limit || lines.length >= 2) {
+    if (`${current} ${word}`.trim().length <= limit || lines.length >= maxLines) {
       lines[lines.length - 1] = `${current} ${word}`.trim();
       return;
     }
@@ -21,12 +21,12 @@ const splitLabel = (value = "", limit = 24) => {
   return lines;
 };
 
-function EventNameTick({ x, y, payload }) {
-  const lines = splitLabel(payload.value);
+function EventNameTick({ x, y, payload, limit = 24, fontSize = 12, maxLines = 2 }) {
+  const lines = splitLabel(payload.value, limit, maxLines);
   return (
     <g transform={`translate(${x},${y})`}>
       {lines.map((line, index) => (
-        <text key={line} x={0} y={index * 15} textAnchor="end" fill="#111" fontSize={12}>
+        <text key={`${line}-${index}`} x={0} y={index * (fontSize + 3)} textAnchor="end" fill="#111" fontSize={fontSize}>
           {line}
         </text>
       ))}
@@ -34,13 +34,60 @@ function EventNameTick({ x, y, payload }) {
   );
 }
 
-const chartHeight = (items) => Math.max(340, items.length * 66 + 90);
+function MobileBarLabel({ x, y, width, height, value }) {
+  if (!value) {
+    return null;
+  }
+  const label = String(value);
+  const maxChars = Math.max(12, Math.floor((width || 0) / 7));
+  const text = label.length > maxChars ? `${label.slice(0, Math.max(9, maxChars - 3))}...` : label;
+  return (
+    <text
+      x={x + 8}
+      y={y + height / 2 + 4}
+      fill="#111"
+      fontSize={10}
+      fontWeight={900}
+      pointerEvents="none"
+    >
+      {text}
+    </text>
+  );
+}
+
+function useChartLayout() {
+  const getLayout = () => {
+    if (typeof window === "undefined") {
+      return { isMobile: false, labelWidth: 180, left: 130, minWidth: 720, labelLimit: 24, fontSize: 12, rowHeight: 66, heightBase: 90 };
+    }
+    if (window.innerWidth <= 560) {
+      return { isMobile: true, labelWidth: 88, left: 42, right: 30, minWidth: 0, labelLimit: 10, fontSize: 9, rowHeight: 72, heightBase: 90 };
+    }
+    if (window.innerWidth <= 900) {
+      return { isMobile: false, labelWidth: 150, left: 102, right: 30, minWidth: 680, labelLimit: 20, fontSize: 11, rowHeight: 72, heightBase: 100 };
+    }
+    return { isMobile: false, labelWidth: 180, left: 130, right: 30, minWidth: 720, labelLimit: 24, fontSize: 12, rowHeight: 66, heightBase: 90 };
+  };
+
+  const [layout, setLayout] = useState(getLayout);
+
+  useEffect(() => {
+    const handleResize = () => setLayout(getLayout());
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return layout;
+}
+
+const chartHeight = (items, layout) => Math.max(340, items.length * layout.rowHeight + layout.heightBase);
 
 export default function AdminDashboardPage() {
   const [revenueData, setRevenueData] = useState([]);
   const [stats, setStats] = useState(null);
   const [events, setEvents] = useState([]);
   const [error, setError] = useState("");
+  const chartLayout = useChartLayout();
 
   useEffect(() => {
     const loadDashboard = () => {
@@ -115,63 +162,115 @@ export default function AdminDashboardPage() {
       <article className="brutal-card chart-card">
         <h2>Revenue per Event</h2>
         {normalizedRevenueData.length ? (
-          <ResponsiveContainer width="100%" height={chartHeight(normalizedRevenueData)}>
-            <BarChart data={normalizedRevenueData} layout="vertical" margin={{ top: 12, right: 30, bottom: 12, left: 130 }}>
-              <CartesianGrid stroke="#111" />
-              <XAxis type="number" allowDecimals={false} />
-              <YAxis dataKey="eventName" type="category" width={180} tick={<EventNameTick />} interval={0} />
-              <Tooltip />
-              <Bar dataKey="revenue" name="Revenue" fill="#ff6b00" />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="chart-scroll">
+            <div className="chart-canvas" style={{ minWidth: chartLayout.minWidth, height: chartHeight(normalizedRevenueData, chartLayout) }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={normalizedRevenueData} layout="vertical" margin={{ top: 12, right: chartLayout.right, bottom: 12, left: chartLayout.left }}>
+                  <CartesianGrid stroke="#111" />
+                  <XAxis type="number" allowDecimals={false} />
+                  {chartLayout.isMobile ? (
+                    <YAxis dataKey="eventName" type="category" width={0} tick={false} axisLine={false} tickLine={false} />
+                  ) : (
+                    <YAxis
+                      dataKey="eventName"
+                      type="category"
+                      width={chartLayout.labelWidth}
+                      tick={<EventNameTick limit={chartLayout.labelLimit} fontSize={chartLayout.fontSize} />}
+                      interval={0}
+                    />
+                  )}
+                  <Tooltip />
+                  <Bar dataKey="revenue" name="Revenue" fill="#ff6b00">
+                    {chartLayout.isMobile ? <LabelList dataKey="eventName" content={<MobileBarLabel />} /> : null}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         ) : <p className="muted-text">No confirmed booking revenue yet.</p>}
       </article>
 
       <article className="brutal-card chart-card">
         <h2>Ticket Distribution</h2>
         {ticketDistribution.length ? (
-          <ResponsiveContainer width="100%" height={chartHeight(ticketDistribution)}>
-            <BarChart data={ticketDistribution} layout="vertical" margin={{ top: 12, right: 30, bottom: 12, left: 130 }}>
-              <CartesianGrid stroke="#111" />
-              <XAxis type="number" allowDecimals={false} />
-              <YAxis dataKey="name" type="category" width={180} tick={<EventNameTick />} interval={0} />
-              <Tooltip />
-              <Bar dataKey="tickets" name="Tickets Sold" fill="#ff3b7a" />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="chart-scroll">
+            <div className="chart-canvas" style={{ minWidth: chartLayout.minWidth, height: chartHeight(ticketDistribution, chartLayout) }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={ticketDistribution} layout="vertical" margin={{ top: 12, right: chartLayout.right, bottom: 12, left: chartLayout.left }}>
+                  <CartesianGrid stroke="#111" />
+                  <XAxis type="number" allowDecimals={false} />
+                  {chartLayout.isMobile ? (
+                    <YAxis dataKey="name" type="category" width={0} tick={false} axisLine={false} tickLine={false} />
+                  ) : (
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      width={chartLayout.labelWidth}
+                      tick={<EventNameTick limit={chartLayout.labelLimit} fontSize={chartLayout.fontSize} />}
+                      interval={0}
+                    />
+                  )}
+                  <Tooltip />
+                  <Bar dataKey="tickets" name="Tickets Sold" fill="#ff3b7a">
+                    {chartLayout.isMobile ? <LabelList dataKey="name" content={<MobileBarLabel />} /> : null}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         ) : <p className="muted-text">No confirmed ticket sales yet.</p>}
       </article>
 
       <article className="brutal-card chart-card">
         <h2>Seat Capacity by Event</h2>
         {soldVsRemaining.length ? (
-          <ResponsiveContainer width="100%" height={chartHeight(soldVsRemaining)}>
-            <BarChart data={soldVsRemaining} layout="vertical" margin={{ top: 12, right: 30, bottom: 12, left: 130 }}>
-              <CartesianGrid stroke="#111" />
-              <XAxis type="number" allowDecimals={false} />
-              <YAxis dataKey="name" type="category" width={180} tick={<EventNameTick />} interval={0} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="booked" name="Booked" stackId="capacity" fill="#111" />
-              <Bar dataKey="held" name="Held" stackId="capacity" fill="#f4dd00" />
-              <Bar dataKey="remaining" name="Remaining" stackId="capacity" fill="#00d4ff" />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="chart-scroll">
+            <div className="chart-canvas" style={{ minWidth: chartLayout.minWidth, height: chartHeight(soldVsRemaining, chartLayout) }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={soldVsRemaining} layout="vertical" margin={{ top: 12, right: chartLayout.right, bottom: 12, left: chartLayout.left }}>
+                  <CartesianGrid stroke="#111" />
+                  <XAxis type="number" allowDecimals={false} />
+                  {chartLayout.isMobile ? (
+                    <YAxis dataKey="name" type="category" width={0} tick={false} axisLine={false} tickLine={false} />
+                  ) : (
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      width={chartLayout.labelWidth}
+                      tick={<EventNameTick limit={chartLayout.labelLimit} fontSize={chartLayout.fontSize} />}
+                      interval={0}
+                    />
+                  )}
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="booked" name="Booked" stackId="capacity" fill="#111">
+                    {chartLayout.isMobile ? <LabelList dataKey="name" content={<MobileBarLabel />} /> : null}
+                  </Bar>
+                  <Bar dataKey="held" name="Held" stackId="capacity" fill="#f4dd00" />
+                  <Bar dataKey="remaining" name="Remaining" stackId="capacity" fill="#00d4ff" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         ) : <p className="muted-text">No event capacity data yet.</p>}
       </article>
 
       <article className="brutal-card chart-card">
         <h2>Bookings Over Time</h2>
         {bookingsOverTime.length ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={bookingsOverTime} margin={{ top: 12, right: 18, bottom: 12, left: 10 }}>
-              <CartesianGrid stroke="#111" />
-              <XAxis dataKey="date" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Line type="monotone" dataKey="bookings" name="Bookings" stroke="#ff3b7a" strokeWidth={4} />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className="chart-scroll">
+            <div className="chart-canvas" style={{ minWidth: chartLayout.minWidth, height: 320 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={bookingsOverTime} margin={{ top: 12, right: 24, bottom: 12, left: 10 }}>
+                  <CartesianGrid stroke="#111" />
+                  <XAxis dataKey="date" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="bookings" name="Bookings" stroke="#ff3b7a" strokeWidth={4} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         ) : <p className="muted-text">No confirmed bookings in the last 30 days.</p>}
       </article>
 

@@ -10,6 +10,7 @@ export default function AppLayout() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantQuestion, setAssistantQuestion] = useState("");
   const [assistantReply, setAssistantReply] = useState("");
@@ -82,59 +83,76 @@ export default function AppLayout() {
   return (
     <div className="shell">
       <header className="topbar">
-        <Link className="brand" to={appUser.role === "ADMIN" ? "/admin/dashboard" : "/events"}>
-          Vel Tech Events
-        </Link>
-        <nav className="nav-links">
-          {appUser.role === "USER" ? (
-            <>
-              <NavLink to="/events">Campus Events</NavLink>
-              <NavLink to="/my-bookings">My Bookings</NavLink>
-              <NavLink to="/saved-users">Saved Users</NavLink>
-            </>
-          ) : (
-            <>
-              <NavLink to="/admin/dashboard">Dashboard</NavLink>
-              <NavLink to="/admin/events">Manage Campus Events</NavLink>
-            </>
-          )}
-        </nav>
-        <div className="user-strip">
-          <div className="notification-shell">
-            <button className="notification-bell" type="button" onClick={() => setPanelOpen((current) => !current)}>
-              Updates
-              {unreadCount ? <span className="notification-count">{unreadCount}</span> : null}
-            </button>
-            {panelOpen ? (
-              <div className="notification-panel brutal-card">
-                <div className="notification-header">
-                  <strong>Updates</strong>
-                  <button type="button" className="text-button" onClick={markAllAsRead}>Mark all read</button>
-                </div>
-                <div className="notification-list">
-                  {visibleNotifications.length ? visibleNotifications.map((notification) => (
-                    <article
-                      key={notification.id}
-                      className={`notification-item ${notification.readStatus ? "read" : "unread"}`}
-                    >
-                      <p>{notification.message}</p>
-                      <small>{new Date(notification.timestamp).toLocaleString()}</small>
-                      {!notification.readStatus ? (
-                        <button type="button" className="text-button" onClick={() => markAsRead(notification.id)}>
-                          Mark as read
-                        </button>
-                      ) : null}
-                    </article>
-                  )) : <p className="muted-text">No notifications yet.</p>}
-                </div>
+        <div className="topbar-head">
+          <Link className="brand" to={appUser.role === "ADMIN" ? "/admin/dashboard" : "/events"} onClick={() => setMenuOpen(false)}>
+            Vel Tech Events
+          </Link>
+          <button
+            className="menu-toggle"
+            type="button"
+            aria-label="Toggle navigation menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((current) => !current)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+        </div>
+        <div className={`topbar-menu ${menuOpen ? "open" : ""}`}>
+          <nav className="nav-links">
+            {appUser.role === "USER" ? (
+              <>
+                <NavLink to="/events" onClick={() => setMenuOpen(false)}>Campus Events</NavLink>
+                <NavLink to="/my-bookings" onClick={() => setMenuOpen(false)}>My Bookings</NavLink>
+                <NavLink to="/saved-users" onClick={() => setMenuOpen(false)}>Saved Users</NavLink>
+              </>
+            ) : (
+              <>
+                <NavLink to="/admin/dashboard" onClick={() => setMenuOpen(false)}>Dashboard</NavLink>
+                <NavLink to="/admin/events" onClick={() => setMenuOpen(false)}>Manage Campus Events</NavLink>
+              </>
+            )}
+          </nav>
+          <div className="user-strip">
+            {appUser.role !== "ADMIN" ? (
+              <div className="notification-shell">
+                <button className="notification-bell" type="button" onClick={() => setPanelOpen((current) => !current)}>
+                  Updates
+                  {unreadCount ? <span className="notification-count">{unreadCount}</span> : null}
+                </button>
+                {panelOpen ? (
+                  <div className="notification-panel brutal-card">
+                    <div className="notification-header">
+                      <strong>Updates</strong>
+                      <button type="button" className="text-button" onClick={markAllAsRead}>Mark all read</button>
+                    </div>
+                    <div className="notification-list">
+                      {visibleNotifications.length ? visibleNotifications.map((notification) => (
+                        <article
+                          key={notification.id}
+                          className={`notification-item ${notification.readStatus ? "read" : "unread"}`}
+                        >
+                          <p>{notification.message}</p>
+                          <small>{new Date(notification.timestamp).toLocaleString()}</small>
+                          {!notification.readStatus ? (
+                            <button type="button" className="text-button" onClick={() => markAsRead(notification.id)}>
+                              Mark as read
+                            </button>
+                          ) : null}
+                        </article>
+                      )) : <p className="muted-text">No notifications yet.</p>}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
+            <span>{appUser.name}</span>
+            <span className="role-chip">{appUser.role}</span>
+            <button className="brutal-button small" type="button" onClick={logout}>
+              Logout
+            </button>
           </div>
-          <span>{appUser.name}</span>
-          <span className="role-chip">{appUser.role}</span>
-          <button className="brutal-button small" type="button" onClick={logout}>
-            Logout
-          </button>
         </div>
       </header>
       <main className="page-wrap">

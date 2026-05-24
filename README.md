@@ -52,3 +52,7 @@ The admin dashboard includes:
 - Bookings over time
 
 Charts refresh on a 15-second interval for near real-time updates.
+
+## Credentials to explore the admin panel
+
+mail-manojcherukuri202@gmail.com pass-12345678
