@@ -1,11 +1,40 @@
 import { useEffect, useState } from "react";
 import {
-  BarChart, Bar, CartesianGrid, Cell, Legend, Line, LineChart,
-  Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis
+  BarChart, Bar, CartesianGrid, Legend, Line, LineChart,
+  ResponsiveContainer, Tooltip, XAxis, YAxis
 } from "recharts";
 import api from "../services/api";
 
-const colors = ["#ff6b00", "#00d4ff", "#f4dd00", "#ff3b7a", "#8bf400"];
+const toNumber = (value) => Number(value || 0);
+
+const splitLabel = (value = "", limit = 24) => {
+  const words = value.split(" ");
+  const lines = [""];
+  words.forEach((word) => {
+    const current = lines[lines.length - 1];
+    if (`${current} ${word}`.trim().length <= limit || lines.length >= 2) {
+      lines[lines.length - 1] = `${current} ${word}`.trim();
+      return;
+    }
+    lines.push(word);
+  });
+  return lines;
+};
+
+function EventNameTick({ x, y, payload }) {
+  const lines = splitLabel(payload.value);
+  return (
+    <g transform={`translate(${x},${y})`}>
+      {lines.map((line, index) => (
+        <text key={line} x={0} y={index * 15} textAnchor="end" fill="#111" fontSize={12}>
+          {line}
+        </text>
+      ))}
+    </g>
+  );
+}
+
+const chartHeight = (items) => Math.max(340, items.length * 66 + 90);
 
 export default function AdminDashboardPage() {
   const [revenueData, setRevenueData] = useState([]);
@@ -33,9 +62,30 @@ export default function AdminDashboardPage() {
     return () => window.clearInterval(intervalId);
   }, []);
 
-  const totalRevenue = revenueData.reduce((sum, item) => sum + Number(item.revenue || 0), 0);
-  const totalBookings = revenueData.reduce((sum, item) => sum + Number(item.bookings || 0), 0);
-  const totalTicketsSold = revenueData.reduce((sum, item) => sum + Number(item.ticketsSold || 0), 0);
+  const normalizedRevenueData = revenueData.map((item) => ({
+    ...item,
+    revenue: toNumber(item.revenue),
+    bookings: toNumber(item.bookings),
+    ticketsSold: toNumber(item.ticketsSold)
+  }));
+  const ticketDistribution = (stats?.ticketDistribution || [])
+    .map((item) => ({ ...item, tickets: toNumber(item.tickets) }))
+    .filter((item) => item.tickets > 0);
+  const soldVsRemaining = (stats?.soldVsRemaining || []).map((item) => ({
+    ...item,
+    booked: toNumber(item.booked),
+    held: toNumber(item.held),
+    remaining: toNumber(item.remaining),
+    capacity: toNumber(item.capacity)
+  }));
+  const bookingsOverTime = (stats?.bookingsOverTime || []).map((item) => ({
+    ...item,
+    bookings: toNumber(item.bookings)
+  }));
+
+  const totalRevenue = normalizedRevenueData.reduce((sum, item) => sum + item.revenue, 0);
+  const totalBookings = normalizedRevenueData.reduce((sum, item) => sum + item.bookings, 0);
+  const totalTicketsSold = normalizedRevenueData.reduce((sum, item) => sum + item.ticketsSold, 0);
 
   const exportReport = async (eventId) => {
     try {
@@ -64,58 +114,65 @@ export default function AdminDashboardPage() {
 
       <article className="brutal-card chart-card">
         <h2>Revenue per Event</h2>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={revenueData}>
-            <CartesianGrid stroke="#111" />
-            <XAxis dataKey="eventName" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="revenue" fill="#ff6b00" />
-          </BarChart>
-        </ResponsiveContainer>
+        {normalizedRevenueData.length ? (
+          <ResponsiveContainer width="100%" height={chartHeight(normalizedRevenueData)}>
+            <BarChart data={normalizedRevenueData} layout="vertical" margin={{ top: 12, right: 30, bottom: 12, left: 130 }}>
+              <CartesianGrid stroke="#111" />
+              <XAxis type="number" allowDecimals={false} />
+              <YAxis dataKey="eventName" type="category" width={180} tick={<EventNameTick />} interval={0} />
+              <Tooltip />
+              <Bar dataKey="revenue" name="Revenue" fill="#ff6b00" />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : <p className="muted-text">No confirmed booking revenue yet.</p>}
       </article>
 
       <article className="brutal-card chart-card">
         <h2>Ticket Distribution</h2>
-        <ResponsiveContainer width="100%" height={280}>
-          <PieChart>
-            <Pie data={stats.ticketDistribution} dataKey="tickets" nameKey="name" outerRadius={95}>
-              {stats.ticketDistribution.map((entry, index) => (
-                <Cell key={entry.name} fill={colors[index % colors.length]} />
-              ))}
-            </Pie>
-            <Tooltip />
-            <Legend />
-          </PieChart>
-        </ResponsiveContainer>
+        {ticketDistribution.length ? (
+          <ResponsiveContainer width="100%" height={chartHeight(ticketDistribution)}>
+            <BarChart data={ticketDistribution} layout="vertical" margin={{ top: 12, right: 30, bottom: 12, left: 130 }}>
+              <CartesianGrid stroke="#111" />
+              <XAxis type="number" allowDecimals={false} />
+              <YAxis dataKey="name" type="category" width={180} tick={<EventNameTick />} interval={0} />
+              <Tooltip />
+              <Bar dataKey="tickets" name="Tickets Sold" fill="#ff3b7a" />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : <p className="muted-text">No confirmed ticket sales yet.</p>}
       </article>
 
       <article className="brutal-card chart-card">
-        <h2>Remaining vs Booked Tickets</h2>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={stats.soldVsRemaining}>
-            <CartesianGrid stroke="#111" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="booked" fill="#111" />
-            <Bar dataKey="remaining" fill="#00d4ff" />
-          </BarChart>
-        </ResponsiveContainer>
+        <h2>Seat Capacity by Event</h2>
+        {soldVsRemaining.length ? (
+          <ResponsiveContainer width="100%" height={chartHeight(soldVsRemaining)}>
+            <BarChart data={soldVsRemaining} layout="vertical" margin={{ top: 12, right: 30, bottom: 12, left: 130 }}>
+              <CartesianGrid stroke="#111" />
+              <XAxis type="number" allowDecimals={false} />
+              <YAxis dataKey="name" type="category" width={180} tick={<EventNameTick />} interval={0} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="booked" name="Booked" stackId="capacity" fill="#111" />
+              <Bar dataKey="held" name="Held" stackId="capacity" fill="#f4dd00" />
+              <Bar dataKey="remaining" name="Remaining" stackId="capacity" fill="#00d4ff" />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : <p className="muted-text">No event capacity data yet.</p>}
       </article>
 
       <article className="brutal-card chart-card">
         <h2>Bookings Over Time</h2>
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={stats.bookingsOverTime}>
-            <CartesianGrid stroke="#111" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip />
-            <Line type="monotone" dataKey="tickets" stroke="#ff3b7a" strokeWidth={4} />
-          </LineChart>
-        </ResponsiveContainer>
+        {bookingsOverTime.length ? (
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={bookingsOverTime} margin={{ top: 12, right: 18, bottom: 12, left: 10 }}>
+              <CartesianGrid stroke="#111" />
+              <XAxis dataKey="date" />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Line type="monotone" dataKey="bookings" name="Bookings" stroke="#ff3b7a" strokeWidth={4} />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : <p className="muted-text">No confirmed bookings in the last 30 days.</p>}
       </article>
 
       <article className="brutal-card chart-card full-span">

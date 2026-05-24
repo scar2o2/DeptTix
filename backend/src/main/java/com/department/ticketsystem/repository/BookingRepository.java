@@ -35,14 +35,14 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Object[]> getBookingTotalsByEvent();
 
     @Query("""
-        select function('date', b.bookingDate), sum(b.tickets)
+        select function('date', b.bookingDate), count(b)
         from Booking b
         where b.bookingDate >= :startDate
         and b.status = com.department.ticketsystem.model.BookingStatus.CONFIRMED
         group by function('date', b.bookingDate)
         order by function('date', b.bookingDate)
         """)
-    List<Object[]> getBookingsOverTime(@Param("startDate") LocalDateTime startDate);
+    List<Object[]> getBookingCountsOverTime(@Param("startDate") LocalDateTime startDate);
 
     @Query("""
         select b.event.id, b.event.name, coalesce(sum(b.totalAmount), 0), count(b), coalesce(sum(b.tickets), 0)

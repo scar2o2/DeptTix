@@ -164,7 +164,7 @@ public class EventService {
         long heldSeats = seatRepository.countByEventAndStatus(event, SeatStatus.HELD);
         int availableTickets = refreshAvailableTickets(event);
         int sellableAvailableSeats = availableTickets + (int) heldSeats;
-        long bookedSeats = event.getTotalTickets() - availableTickets - heldSeats;
+        int bookedSeats = Math.max(0, event.getTotalTickets() - availableTickets - (int) heldSeats);
         return new EventResponse(
                 event.getId(),
                 event.getName(),
@@ -186,7 +186,7 @@ public class EventService {
                 : (int) seatCounts.available();
         long heldSeats = seatCounts.held();
         int sellableAvailableSeats = availableTickets + (int) heldSeats;
-        long bookedSeats = seatCounts.booked();
+        int bookedSeats = Math.toIntExact(seatCounts.booked());
         return new EventResponse(
                 event.getId(),
                 event.getName(),

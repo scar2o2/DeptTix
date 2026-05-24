@@ -54,22 +54,29 @@ public class AdminService {
         List<Event> events = eventRepository.findAll();
         Map<Long, SeatCountSnapshot> seatCounts = loadSeatCounts();
 
-        List<Map<String, Object>> ticketDistribution = events.stream()
-                .map(event -> Map.<String, Object>of(
-                        "name", event.getName(),
-                        "tickets", seatCounts.getOrDefault(event.getId(), SeatCountSnapshot.empty()).booked()))
+        List<Map<String, Object>> ticketDistribution = bookingRepository.getBookingTotalsByEvent().stream()
+                .map(row -> Map.<String, Object>of(
+                        "name", row[0].toString(),
+                        "tickets", ((Number) row[1]).longValue()))
                 .toList();
 
         List<Map<String, Object>> soldVsRemaining = events.stream()
-                .map(event -> Map.<String, Object>of(
-                        "name", event.getName(),
-                        "booked", seatCounts.getOrDefault(event.getId(), SeatCountSnapshot.empty()).booked(),
-                        "remaining", seatCounts.getOrDefault(event.getId(), SeatCountSnapshot.empty()).available()))
+                .map(event -> {
+                    SeatCountSnapshot counts = seatCounts.getOrDefault(event.getId(), SeatCountSnapshot.fromEvent(event));
+                    return Map.<String, Object>of(
+                            "name", event.getName(),
+                            "booked", counts.booked(),
+                            "held", counts.held(),
+                            "remaining", counts.available(),
+                            "capacity", event.getTotalTickets());
+                })
                 .toList();
 
         List<Map<String, Object>> bookingsOverTime = bookingRepository
-                .getBookingsOverTime(LocalDateTime.now().minusDays(30)).stream()
-                .map(row -> Map.<String, Object>of("date", row[0].toString(), "tickets", row[1]))
+                .getBookingCountsOverTime(LocalDateTime.now().minusDays(30)).stream()
+                .map(row -> Map.<String, Object>of(
+                        "date", row[0].toString(),
+                        "bookings", ((Number) row[1]).longValue()))
                 .toList();
 
         return new BookingStatsResponse(ticketDistribution, bookingsOverTime, soldVsRemaining);
@@ -152,26 +159,38 @@ public class AdminService {
         }
     }
 
-    private record SeatCountSnapshot(long available, long booked) {
+    private record SeatCountSnapshot(long available, long held, long booked) {
         private static SeatCountSnapshot empty() {
-            return new SeatCountSnapshot(0, 0);
+            return new SeatCountSnapshot(0, 0, 0);
+        }
+
+        private static SeatCountSnapshot fromEvent(Event event) {
+            return new SeatCountSnapshot(
+                    event.getAvailableTickets() == null ? 0 : event.getAvailableTickets(),
+                    0,
+                    event.getTotalTickets() == null || event.getAvailableTickets() == null
+                            ? 0
+                            : Math.max(0, event.getTotalTickets() - event.getAvailableTickets()));
         }
     }
 
     private static class SeatCountAccumulator {
         private long available;
+        private long held;
         private long booked;
 
         private void add(SeatStatus status, long count) {
             if (status == SeatStatus.AVAILABLE) {
                 available += count;
+            } else if (status == SeatStatus.HELD) {
+                held += count;
             } else if (status == SeatStatus.BOOKED) {
                 booked += count;
             }
         }
 
         private SeatCountSnapshot toSnapshot() {
-            return new SeatCountSnapshot(available, booked);
+            return new SeatCountSnapshot(available, held, booked);
         }
     }
 }
